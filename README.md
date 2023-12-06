@@ -1,224 +1,224 @@
-derive(Throw)
+derive(Toss)
 =============
 
-Complementary library to [thiserror](https://crates.io/crates/thiserror) which provides a convenient derive macro for mapping result to the outer error type.
+Tiny helper library for [thiserror](https://crates.io/crates/thiserror) that generates traits to conveniently handle errors.
 
 ```toml
 [dependencies]
-maperror = "0.1"
+tosserror = "0.1"
 ```
 
 *Compiler support: requires rustc 1.56+*
 
 <br>
 
-## Example
+## Example Usage
 
 ```rust
 use thiserror::Error;
-use maperror::Throw;
+use tosserror::Toss;
 
-#[derive(Error, Throw, Debug)]
+#[derive(Error, Toss, Debug)]
 pub enum DataStoreError {
+    #[error("invalid value ({value}) encountered")]
+    InvalidValue {
+      value: i32,
+      source: std::num::TryFromIntError,
+    }
     #[error("data store disconnected with msg {msg}: {status}")]
     Disconnect{
       status: u8,
       msg: String,
-      source: io::Error
+      source: std::io::Error
     },
-    ...
 }
 
-// some io function
-fn io_fn() -> Result<(), io::Error> {
-    // ...
-    Ok(())
-}
+// uses
+get_value().toss_invalid_value(123)?;
 
-// handling result with maperror
-io_fn().throw_disconnect(123, "some msg".to_owned())?;
+data_store_fn().toss_disconnect_with(|| (123, "some msg".to_owned()))?;
+```
 
-// handling result with conventional map_err
-io_fn().map_err(|e| DataStoreError::Disconnect {
+#### Comparison with conventional `map_err`
+
+```rust
+data_store_fn().map_err(|e| DataStoreError::Disconnect {
     status: 123,
     msg: "some msg".to_owned(),
     source: e
+})?;
+
+get_value().map_err(|e| DataStoreError::InvalidValue {
+  value: 123,
+  source: e
 })?;
 ```
 
 <br>
 
-## Details
+## Why use `derive(Toss)`
 
-- maperror expects [thiserror](https://crates.io/crates/thiserror) to be implemented, as it uses the same attributes such as `source`, `from`, and `backtrace`.
+### Who shouldn't use `derive(Toss)`
 
-- Errors may be enums, structs with named fields, tuple structs, or unit
-  structs.
+#### You don't like magic
 
-- A `Display` impl is generated for your error if you provide `#[error("...")]`
-  messages on the struct or each variant of your enum, as shown above in the
-  example.
+## Attributes
 
-  The messages support a shorthand for interpolating fields from the error.
+### thiserror's attributes: `#[source]`, `#[from]`, `#[backtrace]`
 
-    - `#[error("{var}")]`&ensp;⟶&ensp;`write!("{}", self.var)`
-    - `#[error("{0}")]`&ensp;⟶&ensp;`write!("{}", self.0)`
-    - `#[error("{var:?}")]`&ensp;⟶&ensp;`write!("{:?}", self.var)`
-    - `#[error("{0:?}")]`&ensp;⟶&ensp;`write!("{:?}", self.0)`
+The library uses the same rules as thiserror to determine the source and backtrace fields.
 
-  These shorthands can be used together with any additional format args, which
-  may be arbitrary expressions. For example:
+If you declare a field as source or backtrace, either by field name or attribute, it will be excluded from the generated method's arguments.
 
-  ```rust
-  #[derive(Error, Debug)]
-  pub enum Error {
-      #[error("invalid rdo_lookahead_frames {0} (expected < {})", i32::MAX)]
-      InvalidLookahead(u32),
-  }
-  ```
+```rust
+#[derive(Error, Toss, Debug)]
+#[error("my error with value {value}")]
+pub struct MyError {
+  value: i32,
+  source: io::Error,
+  backtrace: std::backtrace::Backtrace
+}
 
-  If one of the additional expression arguments needs to refer to a field of the
-  struct or enum, then refer to named fields as `.var` and tuple fields as `.0`.
-
-  ```rust
-  #[derive(Error, Debug)]
-  pub enum Error {
-      #[error("first letter must be lowercase but was {:?}", first_char(.0))]
-      WrongCase(String),
-      #[error("invalid index {idx}, expected at least {} and at most {}", .limits.lo, .limits.hi)]
-      OutOfBounds { idx: usize, limits: Limits },
-  }
-  ```
-
-- A `From` impl is generated for each variant containing a `#[from]` attribute.
-
-  Note that the variant must not contain any other fields beyond the source
-  error and possibly a backtrace. A backtrace is captured from within the `From`
-  impl if there is a field for it.
-
-  ```rust
-  #[derive(Error, Debug)]
-  pub enum MyError {
-      Io {
-          #[from]
-          source: io::Error,
-          backtrace: Backtrace,
-      },
-  }
-  ```
-
-- The Error trait's `source()` method is implemented to return whichever field
-  has a `#[source]` attribute or is named `source`, if any. This is for
-  identifying the underlying lower level error that caused your error.
-
-  The `#[from]` attribute always implies that the same field is `#[source]`, so
-  you don't ever need to specify both attributes.
-
-  Any error type that implements `std::error::Error` or dereferences to `dyn
-  std::error::Error` will work as a source.
-
-  ```rust
-  #[derive(Error, Debug)]
-  pub struct MyError {
-      msg: String,
-      #[source]  // optional if field name is `source`
-      source: anyhow::Error,
-  }
-  ```
-
-- The Error trait's `provide()` method is implemented to provide whichever field
-  has a type named `Backtrace`, if any, as a `std::backtrace::Backtrace`.
-
-  ```rust
-  use std::backtrace::Backtrace;
-
-  #[derive(Error, Debug)]
-  pub struct MyError {
-      msg: String,
-      backtrace: Backtrace,  // automatically detected
-  }
-  ```
-
-- If a field is both a source (named `source`, or has `#[source]` or `#[from]`
-  attribute) *and* is marked `#[backtrace]`, then the Error trait's `provide()`
-  method is forwarded to the source's `provide` so that both layers of the error
-  share the same backtrace.
-
-  ```rust
-  #[derive(Error, Debug)]
-  pub enum MyError {
-      Io {
-          #[backtrace]
-          source: io::Error,
-      },
-  }
-  ```
-
-- Errors may use `error(transparent)` to forward the source and Display methods
-  straight through to an underlying error without adding an additional message.
-  This would be appropriate for enums that need an "anything else" variant.
-
-  ```rust
-  #[derive(Error, Debug)]
-  pub enum MyError {
+// pseudo generated code
+trait TossMyError<T> {
+    fn toss_invalid_value(self, value: i32) -> Result<T, MyError>;
+}
+impl<T> TossMyError<T> for io::Error {
+    fn toss_invalid_value(self, value: i32) -> Result<T, MyError> {
       ...
+    }
+}
+```
 
-      #[error(transparent)]
-      Other(#[from] anyhow::Error),  // source and Display delegate to anyhow::Error
-  }
-  ```
+### `#[visibility]`
 
-  Another use case is hiding implementation details of an error representation
-  behind an opaque error type, so that the representation is able to evolve
-  without breaking the crate's public API.
+By default, generated traits are private, only visible to the module it's created in.
 
-  ```rust
-  // PublicError is public, but opaque and easy to keep compatible.
-  #[derive(Error, Debug)]
-  #[error(transparent)]
-  pub struct PublicError(#[from] ErrorRepr);
+With `#[visibility]`, you can expose the generated traits to other modules or to public.
 
-  impl PublicError {
-      // Accessors for anything we do want to expose publicly.
-  }
+You can either place the attribute above the enum to apply to all the traits generated for the error,
+or place it above specific variants to apply it to specific variants' generated traits.
 
-  // Private and free to change across minor version of the crate.
-  #[derive(Error, Debug)]
-  enum ErrorRepr {
-      ...
-  }
-  ```
+#### Examples
 
-- See also the [`anyhow`] library for a convenient single error type to use in
-  application code.
+```rust
+#[derive(Error, Toss, Debug)]
+#[error("...")]
+#[visibility(pub)]
+pub enum Error1 {
+  Var1 { ... }, // generates trait `pub trait TossError1Var1`
+  Var2 { ... }  // generates trait `pub trait TossError1Var2`
+}
 
-  [`anyhow`]: https://github.com/dtolnay/anyhow
+#[derive(Error, Toss, Debug)]
+#[error("...")]
+#[visibility(pub(super))]
+pub enum Error2 {
+  Var1 { ... }, // generates trait `pub(super) trait TossError2Var1`
+  #[visibility(pub(crate))]
+  Var2 { ... }  // generates trait `pub(crate) trait TossError2Var2`
+}
+```
 
-<br>
+## Comparison with `thiserror` and `snafu`
 
-## Comparison to anyhow
+## Generated Code from `derive(Toss)`
 
-Use maperror if you care about designing your own dedicated error type(s) so
-that the caller receives exactly the information that you choose in the event of
-failure. This most often applies to library-like code. Use [Anyhow] if you don't
-care what error type your functions return, you just want it to be easy. This is
-common in application-like code.
+#### Example error
 
-[Anyhow]: https://github.com/dtolnay/anyhow
+```rust
+use thiserror::Error;
+use tosserror::Toss;
 
-<br>
+#[derive(Error, Toss, Debug)]
+pub enum DataStoreError {
+    #[error("invalid value ({value}) encountered")]
+    InvalidValue {
+      value: i32,
+      source: std::num::TryFromIntError,
+    }
+    #[error("data store disconnected with msg {msg}: {status}")]
+    #[visibility(pub(crate))]
+    Disconnect{
+      status: u8,
+      msg: String,
+      source: std::io::Error
+    },
+}
+```
 
-#### License
+#### Generated code
 
-<sup>
-Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
-2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
-</sup>
+```rust
+trait TossDataStoreErrorInvalidValue<__RETURN> {
+    fn toss_invalid_value(self, value: i32) -> Result<__RETURN, DataStoreError>;
+    fn toss_invalid_value_with<F: FnOnce() -> (i32)>(
+        self,
+        f: F,
+    ) -> Result<__RETURN, DataStoreError>;
+}
+impl<__RETURN> TossDataStoreErrorInvalidValue<__RETURN>
+for Result<__RETURN, std::num::TryFromIntError> {
+    fn toss_invalid_value(self, value: i32) -> Result<__RETURN, DataStoreError> {
+        self.map_err(|e| {
+            DataStoreError::InvalidValue {
+                source: e,
+                value,
+            }
+        })
+    }
+    fn toss_invalid_value_with<F: FnOnce() -> (i32)>(
+        self,
+        f: F,
+    ) -> Result<__RETURN, DataStoreError> {
+        self.map_err(|e| {
+            let (value) = f();
+            DataStoreError::InvalidValue {
+                source: e,
+                value,
+            }
+        })
+    }
+}
 
-<br>
-
-<sub>
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this crate by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
-</sub>
+pub(crate) trait TossDataStoreErrorDisconnect<__RETURN> {
+    fn toss_disconnect(
+        self,
+        status: u8,
+        msg: String,
+    ) -> Result<__RETURN, DataStoreError>;
+    fn toss_disconnect_with<F: FnOnce() -> (u8, String)>(
+        self,
+        f: F,
+    ) -> Result<__RETURN, DataStoreError>;
+}
+impl<__RETURN> TossDataStoreErrorDisconnect<__RETURN>
+for Result<__RETURN, std::io::Error> {
+    fn toss_disconnect(
+        self,
+        status: u8,
+        msg: String,
+    ) -> Result<__RETURN, DataStoreError> {
+        self.map_err(|e| {
+            DataStoreError::Disconnect {
+                source: e,
+                status,
+                msg,
+            }
+        })
+    }
+    fn toss_disconnect_with<F: FnOnce() -> (u8, String)>(
+        self,
+        f: F,
+    ) -> Result<__RETURN, DataStoreError> {
+        self.map_err(|e| {
+            let (status, msg) = f();
+            DataStoreError::Disconnect {
+                source: e,
+                status,
+                msg,
+            }
+        })
+    }
+}
+```
