@@ -110,7 +110,7 @@ For the full generated code example, see [Generated Code from `derive(Toss)`](#g
 
 #### Brevity
 
-When I use libraries like `thiserror`, I notice that, often times, handling the errors add
+When I've used libraries like `thiserror`, I've noticed that handling the errors add
 significant bloat to the code, and hinders readability.
 
 You may encounter simple function calls followed by 2 to 4 lines of error handling like below:
@@ -131,7 +131,7 @@ With `derive(Toss)`, your error handling code will almost always stay in one lin
 simple_function().toss_invalid_value(123u32, "some context".to_owned())?;
 ```
 
-You can also pass a closure that returns the arguments to lazily handle errors
+You can also pass a closure that returns the arguments to lazily evaluate context values.
 
 ```rust
 simple_function().toss_invalid_value_with(|| (123u32, "some context".to_owned()))?;
@@ -139,14 +139,14 @@ simple_function().toss_invalid_value_with(|| (123u32, "some context".to_owned())
 
 #### Convenience with autocompletion
 
-With `thiserror`, it may be cumbersome to type out all the pieces:
+With `thiserror`, it may be cumbersome to type out all the characters:
 1. `.map_err`
 2. two `|`s
 3. enum name
 4. variant name
 5. field names and values
 
-I won't say these are like the major hurdles of programming, but it does get pretty annoying when you have to type out a lot of these.
+I won't say these are the major hurdles of programming, but it does get pretty annoying when you have to type these over and over.
 
 With `derive(Toss)`, you get auto-completion!
 
