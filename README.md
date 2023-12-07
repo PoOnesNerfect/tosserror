@@ -293,7 +293,7 @@ pub enum DataStoreError {
 }
 ```
 
-Should this be a default feature? Let me know by leaving a thumbs up to [this PR]().
+Should this be a default feature? Let me know by leaving a thumbs up to [set "thiserror" as a default feature PR](https://github.com/PoOnesNerfect/tosserror/pull/1).
 
 ## Generated Code from `derive(Toss)`
 
