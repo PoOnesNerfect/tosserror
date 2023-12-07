@@ -1,11 +1,11 @@
 [package]
-name = "tosserror"
+name = "tosserror-derive"
 version = "0.1.0"
 authors = ["Jack Lee <jack.y.l.dev@gmail.com>"]
-description = "derive(Toss)"
+description = "Derive implementation of the `tosserror` crate"
 categories = ["rust-patterns"]
 keywords = ["error", "error-handling", "derive"]
-documentation = "https://docs.rs/tosserror"
+documentation = "https://docs.rs/tosserror-derive"
 repository = "https://github.com/poonesnerfect/tosserror"
 license = "MIT OR Apache-2.0"
 edition = "2021"
@@ -15,15 +15,16 @@ rust-version = "1.56"
 
 [features]
 default = []
-thiserror = ["dep:thiserror", "tosserror-derive/thiserror"]
+thiserror = []
+
+[lib]
+proc-macro = true
 
 [dependencies]
-tosserror-derive = { version = "=0.1.0", path = "derive" }
-thiserror = { version = "1.0", optional = true }
+proc-macro2 = "1.0.63"
+quote = "1.0.29"
+syn = "2.0.23"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 rustdoc-args = ["--generate-link-to-definition"]
-
-[dev-dependencies]
-thiserror = "1.0"

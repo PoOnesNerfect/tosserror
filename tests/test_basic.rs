@@ -16,6 +16,7 @@ struct TupleError(String, #[source] io::Error, i32);
 #[derive(Debug, Error, Toss)]
 enum EnumError {
     #[error("io error")]
+    #[prefix(connect)]
     IoError { msg: String, source: io::Error },
     #[error("invalid value: {value}")]
     #[visibility(pub(crate))]
@@ -71,7 +72,7 @@ fn test_enum() -> Result<(), EnumError> {
     })?;
 
     // handling with maperror
-    io_fn().toss_io_with(|| "msg".to_owned())?;
+    io_fn().toss_connect_io_with(|| "msg".to_owned())?;
 
     // 2.
     // handling with map_err

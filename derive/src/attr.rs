@@ -1,4 +1,5 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
+use quote::format_ident;
 use syn::{Attribute, Error, Meta, Result};
 
 pub struct Attrs<'a> {
@@ -6,6 +7,7 @@ pub struct Attrs<'a> {
     pub from: Option<&'a Attribute>,
     pub backtrace: Option<&'a Attribute>,
     pub visibility: Option<&'a TokenStream>,
+    pub prefix: Option<Ident>,
 }
 
 pub fn get(input: &[Attribute]) -> Result<Attrs> {
@@ -14,6 +16,7 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
         from: None,
         backtrace: None,
         visibility: None,
+        prefix: None,
     };
 
     for attr in input {
@@ -49,6 +52,16 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
                 return Err(Error::new_spanned(attr, "duplicate #[from] attribute"));
             }
             attrs.from = Some(attr);
+        } else if attr.path().is_ident("prefix") {
+            if attrs.prefix.is_some() {
+                return Err(Error::new_spanned(attr, "duplicate #[backtrace] attribute"));
+            }
+            if let Meta::List(list) = &attr.meta {
+                let ident: Ident = syn::parse2(list.tokens.clone())?;
+                attrs.prefix = Some(ident);
+            } else if let Meta::Path(_) = &attr.meta {
+                attrs.prefix = Some(format_ident!("self"));
+            }
         }
     }
 

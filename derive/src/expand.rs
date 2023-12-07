@@ -20,17 +20,18 @@ fn impl_struct(input: Struct) -> TokenStream {
     };
 
     let trait_name = format_ident!("Toss{}", input.ident);
-    let method_name = {
-        let mut snake = String::new();
-        for (i, ch) in input.ident.to_string().char_indices() {
-            if i > 0 && ch.is_uppercase() {
-                snake.push('_');
+
+    let method_name = input
+        .attrs
+        .prefix
+        .map(|p| {
+            if p == "self" {
+                panic!("prefix value must be specified");
+            } else {
+                format!("{}_{}", snake_case_trimmed(&p), snake_case_trimmed(ty))
             }
-            snake.push(ch.to_ascii_lowercase());
-        }
-        snake = snake.trim_end_matches("_error").to_owned();
-        snake
-    };
+        })
+        .unwrap_or_else(|| snake_case_trimmed(ty));
     let toss_method = format_ident!("toss_{}", method_name);
     let with_method = format_ident!("toss_{}_with", method_name);
 
@@ -142,6 +143,23 @@ fn impl_struct(input: Struct) -> TokenStream {
 
     let visibility = input.attrs.visibility;
 
+    let thiserror_export = {
+        #[cfg(feature = "thiserror")]
+        let mod_name = format_ident!("__import_thiserror_by_{}", snake_case_trimmed(ty));
+        #[cfg(feature = "thiserror")]
+        quote! {
+            #[doc(hidden)]
+            mod #mod_name {
+                pub use tosserror::thiserror;
+            }
+            #[allow(unused_imports)]
+            use #mod_name::*;
+        }
+
+        #[cfg(not(feature = "thiserror"))]
+        quote! {}
+    };
+
     quote! {
         #visibility trait #trait_name #impl_generics {
             fn #toss_method (self, #args) -> Result<__RETURN, #ty #ty_generics> #where_clause;
@@ -155,6 +173,8 @@ fn impl_struct(input: Struct) -> TokenStream {
             }
             #with_method_impl
         }
+
+        #thiserror_export
     }
 }
 
@@ -174,22 +194,27 @@ fn impl_enum(input: Enum) -> TokenStream {
     let (impl_generics, thiserror_ty_generics, _) = generics.split_for_impl();
 
     let visibility = input.attrs.visibility;
+    let prefix = input.attrs.prefix;
 
     let impls: Vec<Option<TokenStream>> = input.variants.iter().map(|variant|{
             if let Some(source) = source_field(&variant.fields) {
                 let variant_ident = &variant.ident;
                 let trait_name = format_ident!("Toss{}{}", input.ident, variant_ident);
-                let method_name = {
-                    let mut snake = String::new();
-                    for (i, ch) in variant_ident.to_string().char_indices() {
-                        if i > 0 && ch.is_uppercase() {
-                            snake.push('_');
-                        }
-                        snake.push(ch.to_ascii_lowercase());
-                    }
-                    snake = snake.trim_end_matches("_error").to_owned();
-                    snake
-                };
+
+                let method_name = variant
+                    .attrs
+                    .prefix
+                    .as_ref()
+                    .or_else(|| prefix.as_ref())
+                    .map(|p| {
+                        let prefix = if p == "self" {
+                            snake_case_trimmed(ty)
+                        } else {
+                            snake_case(&p)
+                        };
+                        format!("{}_{}", prefix, snake_case_trimmed(variant_ident))
+                    })
+                    .unwrap_or_else(|| snake_case_trimmed(variant_ident));
                 let toss_method = format_ident!("toss_{}", method_name);
                 let with_method = format_ident!("toss_{}_with", method_name);
 
@@ -308,9 +333,44 @@ fn impl_enum(input: Enum) -> TokenStream {
             }
         }).collect();
 
+    let thiserror_export = {
+        #[cfg(feature = "thiserror")]
+        let mod_name = format_ident!("__import_thiserror_by_{}", snake_case_trimmed(ty));
+        #[cfg(feature = "thiserror")]
+        quote! {
+            #[doc(hidden)]
+            mod #mod_name {
+                pub use tosserror::thiserror;
+            }
+            #[allow(unused_imports)]
+            use #mod_name::*;
+        }
+
+        #[cfg(not(feature = "thiserror"))]
+        quote! {}
+    };
+
     quote! {
         #(#impls)*
+        #thiserror_export
     }
+}
+
+fn snake_case_trimmed(ident: &Ident) -> String {
+    let mut snake = snake_case(ident);
+    snake = snake.trim_end_matches("_error").to_owned();
+    snake
+}
+
+fn snake_case(ident: &Ident) -> String {
+    let mut snake = String::new();
+    for (i, ch) in ident.to_string().char_indices() {
+        if i > 0 && ch.is_uppercase() {
+            snake.push('_');
+        }
+        snake.push(ch.to_ascii_lowercase());
+    }
+    snake
 }
 
 fn source_field<'a, 'b>(fields: &'a [Field<'b>]) -> Option<&'a Field<'b>> {

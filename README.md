@@ -43,15 +43,15 @@ data_store_fn().toss_disconnect_with(|| (123, "some msg".to_owned()))?;
 #### Comparison with conventional `map_err`
 
 ```rust
+get_value().map_err(|e| DataStoreError::InvalidValue {
+  value: 123,
+  source: e
+})?;
+
 data_store_fn().map_err(|e| DataStoreError::Disconnect {
     status: 123,
     msg: "some msg".to_owned(),
     source: e
-})?;
-
-get_value().map_err(|e| DataStoreError::InvalidValue {
-  value: 123,
-  source: e
 })?;
 ```
 
@@ -84,18 +84,18 @@ it will generate traits and implementations as below:
 
 ```rust
 // pseudo generated code
-trait TossDataStoreInvalidValue<T> {
-    fn toss_invalid_value(self, value: i32) -> Result<T, MyError>;
+trait TossDataStoreErrorInvalidValue<T> {
+    fn toss_invalid_value(self, value: i32) -> Result<T, DataStoreError>;
 }
-impl<T> TossDataStoreInvalidValue<T> for Result<T, std::num::TryFromIntError> {
-    fn toss_invalid_value(self, value: i32) -> Result<T, MyError> { ... }
+impl<T> TossDataStoreErrorInvalidValue<T> for Result<T, std::num::TryFromIntError> {
+    fn toss_invalid_value(self, value: i32) -> Result<T, DataStoreError> { ... }
 }
 
-trait TossDataStoreDisconnect<T> {
-    fn toss_disconnect(self, status: u8, msg: String) -> Result<T, MyError>;
+trait TossDataStoreErrorDisconnect<T> {
+    fn toss_disconnect(self, status: u8, msg: String) -> Result<T, DataStoreError>;
 }
-impl<T> TossDataStoreDisconnect<T> for Result<T, std::io::Error> {
-    fn toss_disconnect(self, status: u8, msg: String) -> Result<T, MyError> { ... }
+impl<T> TossDataStoreErrorDisconnect<T> for Result<T, std::io::Error> {
+    fn toss_disconnect(self, status: u8, msg: String) -> Result<T, DataStoreError> { ... }
 }
 ```
 
@@ -234,6 +234,66 @@ pub enum Error2 {
   Var2 { ... }  // generates trait `pub(crate) trait TossError2Var2`
 }
 ```
+
+### `#[prefix]`
+
+There may be cases where there are multiple errors in the module, and the variant names clash.
+
+In this case, compiler will complain about the ambiguous method name.
+
+With `#[prefix]`, you can prefix a text value to the generated trait methods.
+
+Simply place `#[prefix]` to prefix the snake_cased enum name as the prefix value,
+or place `#[prefix(custom_prefix)]` to write your own prefix value.
+
+```rust
+#[derive(Error, Toss, Debug)]
+#[error("...")]
+#[prefix] // apply prefix "connect" (enum name without `_error`) to all variants
+pub enum ConnectError {
+  Var1 { ... }, // generates trait method `fn toss_connect_var1(self)`
+  Var2 { ... }  // generates trait method `fn toss_connect_var2(self)`
+}
+
+#[derive(Error, Toss, Debug)]
+#[error("...")]
+#[prefix(custom)] // apply prefix "custom" to all variants
+pub enum AnotherError {
+  Var1 { ... }, // generates trait method `fn toss_custom_var1(self)`
+  #[prefix(specific)] // apply prefix "specific" just to this variant
+  Var2 { ... }  // generates trait method `fn toss_specific_var2(self)`
+}
+```
+
+## Features
+
+### `thiserror`
+
+```toml
+[dependencies]
+tosserror = { version = "0.1", features = ["thiserror"] }
+# thiserror = "1.0" # no longer necessary
+```
+
+Enabling feature `thiserror` re-exports `thiserror::Error` so that you don't have to depend
+both on `tosserror` and `thiserror`.
+
+You can now just use `tosserror::Error` to derive your errors.
+
+```rust
+use tosserror::{Error, Toss};
+
+#[derive(Error, Toss, Debug)]
+pub enum DataStoreError {
+    #[error("invalid value ({value}) encountered")]
+    InvalidValue {
+      value: i32,
+      source: std::num::TryFromIntError,
+    },
+}
+```
+
+Should this be a default feature? Let me know by leaving a thumbs up to [this PR]().
 
 ## Generated Code from `derive(Toss)`
 
