@@ -183,7 +183,7 @@ For those of you who still want to give it a try, here are my thoughts on this c
 
 The library uses the same rules as thiserror to determine the source and backtrace fields.
 
-If you declare a field as source or backtrace, either by field name or attribute, it will be excluded from the generated method's arguments.
+If you define a field as source or backtrace, either by field name or attribute, it will be excluded from the generated method's arguments.
 
 ```rust
 #[derive(Error, Toss, Debug)]
@@ -234,6 +234,35 @@ pub enum Error2 {
   Var2 { ... }  // generates trait `pub(crate) trait TossError2Var2`
 }
 ```
+
+#### Tip: how to use error cross-module/project-wide
+
+Many libraries tend to define one error in the root module, and use it throughout the modules in the library.
+
+This may be troublesome as auto-completion of traits may not work in different modules.
+This means that you would have to manually import these traits, when you don't even know what they look like, or import all (`use *`) from that module.
+
+In this case, here's what I usually do:
+
+1. create a new module `error` and put the error definition in it.
+    ```rust
+    pub(crate) mod error {
+      #[derive(Error, Toss, Debug)]
+      #[visibility(pub(crate))]
+      pub enum MyError {
+        ...
+      }
+    }
+    ```
+    Make sure the specify the visibility attribute to `pub(crate)` or whatever necessary.
+
+2. whenever you use error handling, just import the error module
+    ```rust
+    use crate::error::*;
+    ```
+    this way, you can cleanly import all generated traits along with your error.
+
+
 
 ### `#[prefix]`
 
