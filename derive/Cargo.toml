@@ -1,6 +1,6 @@
 [package]
 name = "tosserror-derive"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jack Lee <jack.y.l.dev@gmail.com>"]
 description = "Derive implementation of the `tosserror` crate"
 categories = ["rust-patterns"]

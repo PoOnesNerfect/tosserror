@@ -10,6 +10,27 @@ tosserror = "0.1"
 
 *Compiler support: requires rustc 1.56+*
 
+### Table of Contents
+- [Exaple Usage](#example-usage)
+  - [Comparison with conventional `map_err`](#comparison-with-conventional-maperr)
+- [How it works](#how-it-works)
+- [Why use `derive(Toss)`](#why-use-derivetoss)
+  - [Brevity](#brevity)
+  - [Convenience with autocompletion](#convenience-with-autocompletion)
+  - [Why you may not use `derive(Toss)`](#why-you-may-not-use-derivetoss)
+- [Attributes](#attributes)
+  - [thiserror's attributes: `#[source]`, `#[from]`, `#[backtrace]`](#thiserrors-attributes-source-from-backtrace)
+  - [`#[visibility]`](#visibility)
+    - [Examples](#examples)
+    - [Tip: how to use error cross-module/project-wide](#tip-how-to-use-error-cross-moduleproject-wide)
+  - [`#[prefix]`](#prefix)
+- [Features](#features)
+  - [`thiserror`](#thiserror)
+- [Generated Code from `derive(Toss)`](#generated-code-from-derivetoss)
+- [Credits](#credits)
+
+
+
 <br>
 
 ## Example Usage
@@ -183,7 +204,7 @@ For those of you who still want to give it a try, here are my thoughts on this c
 
 The library uses the same rules as thiserror to determine the source and backtrace fields.
 
-If you declare a field as source or backtrace, either by field name or attribute, it will be excluded from the generated method's arguments.
+If you define a field as source or backtrace, either by field name or attribute, it will be excluded from the generated method's arguments.
 
 ```rust
 #[derive(Error, Toss, Debug)]
@@ -234,6 +255,35 @@ pub enum Error2 {
   Var2 { ... }  // generates trait `pub(crate) trait TossError2Var2`
 }
 ```
+
+#### Tip: how to use error cross-module/project-wide
+
+Many libraries tend to define one error in the root module, and use it throughout the modules in the library.
+
+This may be troublesome as auto-completion of traits may not work in different modules.
+This means that you would have to manually import these traits, when you don't even know what they look like, or import all (`use *`) from that module.
+
+In this case, here's what I usually do:
+
+1. create a new module `error` and put the error definition in it.
+    ```rust
+    pub(crate) mod error {
+      #[derive(Error, Toss, Debug)]
+      #[visibility(pub(crate))]
+      pub enum MyError {
+        ...
+      }
+    }
+    ```
+    Make sure the specify the visibility attribute to `pub(crate)` or whatever necessary.
+
+2. whenever you use error handling, just import the error module
+    ```rust
+    use crate::error::*;
+    ```
+    this way, you can cleanly import all generated traits along with your error.
+
+
 
 ### `#[prefix]`
 
@@ -294,6 +344,12 @@ pub enum DataStoreError {
 ```
 
 Should this be a default feature? Let me know by leaving a thumbs up to [set "thiserror" as a default feature PR](https://github.com/PoOnesNerfect/tosserror/pull/1).
+
+#### limitations
+
+This works by re-exporting thiserror within the generated code of `derive(Toss)`.
+
+Therefore, `derive(tosserror::Error)` only works when used together with `derive(Toss)`.
 
 ## Generated Code from `derive(Toss)`
 
