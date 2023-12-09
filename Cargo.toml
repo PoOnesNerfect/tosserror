@@ -1,6 +1,6 @@
 [package]
 name = "tosserror"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jack Lee <jack.y.l.dev@gmail.com>"]
 description = "derive(Toss)"
 categories = ["rust-patterns"]
@@ -18,7 +18,7 @@ default = []
 thiserror = ["dep:thiserror", "tosserror-derive/thiserror"]
 
 [dependencies]
-tosserror-derive = { version = "=0.1.1", path = "derive" }
+tosserror-derive = { version = "=0.1.2", path = "derive" }
 thiserror = { version = "1.0", optional = true }
 
 [package.metadata.docs.rs]

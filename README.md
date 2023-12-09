@@ -10,6 +10,27 @@ tosserror = "0.1"
 
 *Compiler support: requires rustc 1.56+*
 
+### Table of Contents
+- [Exaple Usage](#example-usage)
+  - [Comparison with conventional `map_err`](#comparison-with-conventional-maperr)
+- [How it works](#how-it-works)
+- [Why use `derive(Toss)`](#why-use-derivetoss)
+  - [Brevity](#brevity)
+  - [Convenience with autocompletion](#convenience-with-autocompletion)
+  - [Why you may not use `derive(Toss)`](#why-you-may-not-use-derivetoss)
+- [Attributes](#attributes)
+  - [thiserror's attributes: `#[source]`, `#[from]`, `#[backtrace]`](#thiserrors-attributes-source-from-backtrace)
+  - [`#[visibility]`](#visibility)
+    - [Examples](#examples)
+    - [Tip: how to use error cross-module/project-wide](#tip-how-to-use-error-cross-moduleproject-wide)
+  - [`#[prefix]`](#prefix)
+- [Features](#features)
+  - [`thiserror`](#thiserror)
+- [Generated Code from `derive(Toss)`](#generated-code-from-derivetoss)
+- [Credits](#credits)
+
+
+
 <br>
 
 ## Example Usage
@@ -323,6 +344,12 @@ pub enum DataStoreError {
 ```
 
 Should this be a default feature? Let me know by leaving a thumbs up to [set "thiserror" as a default feature PR](https://github.com/PoOnesNerfect/tosserror/pull/1).
+
+#### limitations
+
+This works by re-exporting thiserror within the generated code of `derive(Toss)`.
+
+Therefore, `derive(tosserror::Error)` only works when used together with `derive(Toss)`.
 
 ## Generated Code from `derive(Toss)`
 
