@@ -14,7 +14,7 @@ rust-version = "1.56"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["thiserror"]
 thiserror = ["dep:thiserror", "tosserror-derive/thiserror"]
 
 [dependencies]
